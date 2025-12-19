@@ -1,0 +1,74 @@
+@startuml duplicate-order
+
+title Duplicate Order
+
+Actor "user" as user
+Participant "navi-gateway" as gateway
+Participant "navi-core" as core
+Participant "navi-storage" as storage
+Participant "navi-wa" as wa
+database "navi-db" as db
+
+user -> gateway: create order
+
+gateway -> core: create order
+activate core
+
+core -> core: validate order request
+
+core -> db ++: check if order exists
+db -> core --: << order >>
+
+core -> db ++: populate order atribute
+db -> core --: << populated order >>
+note right
+    Populated items:
+        - Cost Breakdown
+        - Attachments
+        - Order Items
+        - Quotations
+end note
+
+core -> core: check access key for assignment truck driver
+
+== start multiple create ==
+
+loop Total Duplicate Count
+    create participant "goroutines-seeder" as threadseeder
+    core -> threadseeder++: populate order that being created
+    
+    create participant "goroutines-number" as threadnumber
+    threadseeder -> threadnumber--: generate order number
+    threadnumber -> db++: lock db for running number
+    db -> db: << locked db row >>
+    db -> db: generate order number based on running number
+    db -> threadnumber--: unlock db for running number
+
+    create participant "goroutines-order" as threadorder
+    threadnumber -> threadorder: return generated order number
+    threadorder -> threadorder: create order
+    threadorder -> threadorder: assign && update truck
+    threadorder -> threadorder: assign && update driver
+    threadorder -> threadorder: assign && update kernet
+    threadorder -> db: duplicate order
+    threadorder -> db: dupliate item
+    threadorder -> db: duplicate cost/revenue breakdown
+    threadorder -> storage: duplicate attachments
+    threadorder -> db: create order log
+    threadorder -> wa: send order created notification to driver & truck
+    threadorder -> wa: send order created notification to vendor
+    
+    threadorder -> core: return created order id
+end
+
+== end multiple create ==
+
+core -> core: update order count number
+
+core -> gateway: return order
+deactivate core
+
+gateway -> user: return order
+
+
+@enduml

@@ -1,0 +1,29 @@
+@startuml duplicate-order
+
+title Duplicate Order
+
+Participant "navi-gateway" as gateway
+Participant "navi-core" as core
+Participant "navi-storage" as storage
+database "navi-db" as db
+Queue "navi-redis" as redis
+
+[-> gateway: create order
+
+gateway -> core: create order
+activate core
+
+core -> core: << Check User OrgID >>
+
+core -> core: validate order request
+
+core -> db: create order
+core -> storage: insert attachments
+
+core -> gateway: return order
+deactivate core
+
+[<- gateway: return order
+
+
+@enduml
