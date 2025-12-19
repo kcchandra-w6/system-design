@@ -1,0 +1,47 @@
+@startuml cancel-advance
+
+title Cancel Advance Request
+
+Actor "user" as user
+Participant "navi-gateway" as gateway
+Participant "navi-core" as core
+database "navi-db" as db
+
+user -> gateway: cancel advance
+
+gateway -> core: cancel advance
+activate core
+
+core -> db ++: check if advance exists
+db -> core --: << advance >>
+
+core --> gateway: error if advance not found
+gateway --> user: error if advance not found
+
+core -> core: validate cancel advance request
+note right 
+    - advance status must be waiting for approval disburse or disbursed
+    - if advance in disbursed -> will be cancelled
+    - if advance in settled -> will be changed to disbursed
+end note
+
+core -> core: create advance log for current status
+||20||
+
+core -> db: get advance log for disbursed if status is settled
+db -> core --: << advance logs >>
+core -> core: search for status log disbursed
+core -> core: if found -> create advance log for disbursed
+||20||
+
+core -> db: cancel advance
+note right
+    - change status to cancelled
+    - emptied the waiting approval
+    - insert advance logs
+end note
+
+core -> gateway: return success
+gateway -> user: success cancel advance
+
+@enduml
