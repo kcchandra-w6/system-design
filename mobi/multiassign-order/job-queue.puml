@@ -1,0 +1,66 @@
+@startuml multiassignment-order
+
+title Multi Assignment Order Job Queue Mode
+
+Actor "user" as user
+Participant "navi-gateway" as gateway
+Participant "navi-core" as core
+Participant "navi-wa" as wa
+database "navi-db" as db
+database "navi-redis" as redis
+
+
+user -> gateway: update order to done
+
+gateway -> core: update order to done
+
+core -> core ++: update order to done
+    note right
+        - check if order is multi assignment
+        - if yes then push job to redis queue
+        - if no then just return success
+    end note
+||20||
+
+core --> wa: send notification upload POD to driver
+
+core --> db: insert job queue
+
+core -> gateway --: return success
+
+gateway -> user: return success
+||30||
+
+== start job worker ==
+
+[-> core ++: worker job routine is runing
+    note right
+        - job routine already registered in routers
+        - job routine default will scan off the job queue
+    end note
+
+core -> redis: subscribe to redis queue
+
+redis -> core: get job from redis queue
+
+db -> core: get order from db
+core -> core: check the order availability
+    note right
+        - check if driver is available
+        - check if truck is available
+        - check if kernet is available
+    end note
+
+core -> core: check the order orderable
+    note right
+        order by the time of assignment 
+        and the load estimation
+    end note
+
+core -> db: set the status into <b>ready_to_go</b>
+
+core --> wa: send order ready to go notification to driver & truck
+
+core <- redis: job routine wait for next schedule
+
+@enduml

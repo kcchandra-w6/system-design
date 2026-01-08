@@ -1,0 +1,71 @@
+@startuml multiassignment-order
+
+title Multi Assignment Order Event Driven Mode
+
+Actor "user" as user
+Participant "navi-gateway" as gateway
+Participant "navi-core" as core
+Participant "navi-wa" as wa
+database "navi-db" as db
+database "navi-redis" as redis
+
+
+user -> gateway: update order to done
+
+gateway -> core: update order to done
+
+core -> core ++: update order to done
+    note right
+        - check if order is multi assignment
+        - if yes then push job to redis queue
+        - if no then just return success
+    end note
+||20||
+
+core --> wa: send notification upload POD to driver
+
+core -> redis: push job to redis queue
+    note right
+        job pushed to redis will have new name.
+        Job will be consumed by worker with delay of 30 minutes.
+    end note
+
+core -> gateway --: return success
+
+gateway -> user: return success
+||30||
+
+== start multiple assignment ==
+
+[-> core ++: worker subscribing to redis queue
+    note right
+        - worker will be running in background
+        - worker is subscribing to redis queue
+        - worker will be checking if there is any job in redis queue
+        - if there is any job then worker will be processing the job
+    end note
+
+core -> redis: subscribe to redis queue
+
+redis -> core: get job from redis queue
+
+db -> core: get order from db
+core -> core: check the order availability
+    note right
+        - check if driver is available
+        - check if truck is available
+        - check if kernet is available
+    end note
+
+core -> core: check the order orderable
+    note right
+        order by the time of assignment 
+        and the load estimation
+    end note
+
+core -> db: set the status into <b>ready_to_go</b>
+
+core -> wa: send order ready to go notification to driver & truck
+core -> core: update order count cache
+
+@enduml

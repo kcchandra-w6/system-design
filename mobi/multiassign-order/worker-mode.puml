@@ -1,0 +1,74 @@
+@startuml worker-mode
+
+title Multi Assignment Order Worker Mode
+
+Actor "user" as user
+Participant "navi-gateway" as gateway
+Participant "navi-core" as core
+Participant "navi-wa" as wa
+database "navi-db" as db
+
+== Start Of Update Order To Done ==
+
+user -> gateway: update order to done
+
+gateway -> core: update order to done
+
+core -> core ++: update order to done
+    note right
+        - check if order is multi assignment
+        - if yes then push job to redis queue
+        - if no then just return success
+    end note
+
+core --> wa: send notification upload POD to driver
+
+core -> gateway --: return success
+
+gateway -> user: return success
+||30||
+
+== End Of Update Order To Done ==
+
+== Start Of Worker Mode ==
+
+[-> core ++: worker is running
+    note right
+        - worker will be running in background
+        - worker checking the running order 
+            with status <b>waiting_for_departure</b>
+        - for every order that reach the time of the upload POD
+            which is configured in application settings otherwise
+            will be skipped
+    end note
+
+core -> db: get orders from db
+db -> core --: << orders >>
+
+loop Every Order
+    core -> db: get order from db
+    db -> core --: << order >>
+    core -> core: check the order availability
+    note right
+        - check if driver is available
+        - check if truck is available
+        - check if kernet is available
+    end note
+
+    core -> core: check the order is ready to go
+    note right
+        order by the time of assignment 
+        and the load estimation
+    end note
+
+    core -> db: set the status into <b>ready_to_go</b>
+
+    core --> wa: send order ready to go notification to driver & truck
+    core --> wa: kill upload POD session
+end
+
+[<- core: worker wait for next schedule
+
+== End Of Worker Mode ==
+
+@enduml
