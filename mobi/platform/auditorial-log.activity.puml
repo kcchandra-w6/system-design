@@ -1,0 +1,22 @@
+@startuml auditorial-log-activity
+
+start
+
+:request changes;
+
+:process changes in core-service;
+
+:trigger auditorial log;
+
+:record auditorial log;
+if (record has any changes?) then (yes)
+    :prepare the changes;
+    :save the changes to database;
+else (no)
+    :skip record changes;
+    end
+endif
+
+end
+
+@enduml

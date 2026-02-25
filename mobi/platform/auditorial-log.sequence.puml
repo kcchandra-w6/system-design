@@ -1,0 +1,48 @@
+@startuml auditorial-log
+
+title Auditorial Log
+
+Actor "user" as user
+Participant "navi-gateway" as gateway
+Participant "navi-core" as core
+database "navi-db" as db
+database "navi-redis" as redis
+
+user -> gateway: Action on any resource
+note right
+    - The action would be create, update, delete, etc.
+    - Currently supported is invoice and advance.
+end note
+
+gateway -> core ++: process action
+
+core -> db: process changes action in database
+
+core -> db: trigger auditorial log
+core -> redis: push job to redis queue
+
+core -> gateway --: return success
+
+== start auditorial log worker ==
+
+[-> core ++: auditorial log worker is running
+
+redis -> core: get job from redis queue
+
+core -> core: process job
+note right
+    - process will be spawn to capture changes
+    - changes will consist of old and new values
+    - changes will be saved in PostgreSQL database
+end note
+
+core -> db: record auditorial log
+
+core --> redis: waiting for next job
+
+core -> db: commit transaction
+core -> db --: update job status to completed
+
+== end auditorial log worker ==
+
+@enduml

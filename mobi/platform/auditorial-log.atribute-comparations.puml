@@ -1,0 +1,38 @@
+@startuml auditorial-log-atribute-comparations
+
+title Auditorial Log - Atribute Comparations Pseudo Code
+
+start
+
+:Each Domain will determine the object need to be recorded;
+
+:Each domain will put the platform attribute to the record;
+
+:Each object will be prepared within a usecase for each domain for business process flexibility;
+
+:Populate capture change object;
+
+:Create Job Capture Change Object;
+
+if (Change is Create?) then (yes)
+    :Populate old value as null;
+    :Populate new value as the object value;
+else if (Change is Update?) then (yes)
+    :Populate old and new value as the object value;
+else if (Change is Delete?) then (yes)
+    :Populate old value deleted_at and deleted_by;
+    :Populate new value as null;
+endif
+
+:Marshal the object to JSON with platform marshaller;
+
+:Push Capture Change Object to Redis Queue;
+
+:Capture Change Object;
+:Compare each attribute value with old value using reflection;
+:Populate the difference as audit-log;
+:Insert Changes to database;
+
+end
+
+@enduml
