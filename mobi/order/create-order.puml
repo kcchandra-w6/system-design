@@ -1,29 +1,121 @@
-@startuml duplicate-order
+@startuml create-order
 
-title Duplicate Order
+title Create Order
 
+Actor "user" as user
 Participant "navi-gateway" as gateway
 Participant "navi-core" as core
 Participant "navi-storage" as storage
+Participant "navi-wa" as wa
 database "navi-db" as db
-Queue "navi-redis" as redis
 
-[-> gateway: create order
+user -> gateway: create order
 
 gateway -> core: create order
 activate core
 
-core -> core: << Check User OrgID >>
-
 core -> core: validate order request
+note right of core
+    - set default created from to ""order_creation""
+    - ensure limit order
+    - validate SO Line item for create DO (avoid duplicate)
+    - ensure plannable SO for DO
+    - populate custom field for goods from SO
+    - 
+end note
 
-core -> db: create order
-core -> storage: insert attachments
+alt single DO
+    core -> db: generate doc number
+    core <- db: << generated doc number >>
+    
+    create "Process Create DO" as pco
+    core -> pco ++: Create DO
+    pco -> pco: validate input
+    pco -> pco: define organization ID (agregator, vendor etc)
+    pco -> db: check vendor & customer price
+    pco -> pco: check location, vendor, customer org
+    pco <- db: populate uom, activity type, service type etc
+    pco -> pco: validate location sequence, estimation date etc
+    pco -> db: Inserting data
+    note right of pco
+        - order
+        - goods
+        - line items
+        - locations
+        - cost
+        - revenue
+        - reference
+        - activity logs
+        - pod requirement
+        - account manager
+    end note
 
-core -> gateway: return order
+    create "After Create DO" as afco
+    pco -> afco: notification wa
+    afco -> afco: update order count
+    afco -> db: insert order log
+
+    alt Order Creation Type is ""auto_assign""
+        pco -> pco: assign truck and driver
+        pco -> db: update assigned order
+        pco -> wa: driver & truck assigned
+    end
+
+    alt Flag Assign Recomendation Cost/Revenue is TRUE
+        create "Assign Cost & Revenue" as acr
+        pco -> acr: Assign Cost & Revenue
+        acr -> db: populate quotation based on truck driver and service type
+        acr <- db: << Quotations >>
+        acr -> acr: Search Quotation recomendations
+        note right of acr
+            - loop for each quotation
+            - search for the high price quotation
+            - compare based on origin and destination
+        end note
+        acr -> db: Insert cost & revenue DO
+    end
+
+    pco -> core --: << Success Create DO >>
+    core -> gateway: << Success Create DO >>
+    gateway -> user: << Success Create DO >>
+
+else multiple DO
+    loop Total Batch DO
+        create "Worker Generate DO Number" as wgdo
+        core -> wgdo: Initiate worker generate DO Number
+        note right of wgdo
+            worker used to sequentially generate Do number
+            it will use channel
+        end note
+
+        create "Worker Generate DO" as wgo
+        core -> wgo: Initiate worker generate DO
+        wgo -> storage: copy files
+        wgo -> wgdo: request generated DO number
+        wgdo -> wgo: << generated do number >>
+        wgo -> wgo: create DO
+        note right of wgo
+            the process is the same as the single one
+            but this time the process is being looped
+        end note
+
+        wgo -> wgo: Populate created order ID
+    end
+
+    wgo -> core: << Success Create DO >>
+end
+
+core -> core: Initiate process After Create DO
+core -> core: Assign Truck & Driver Preference based on order creation type
+core -> core: Assign Cost & Revenue based on order creation type
+note right
+    both of the process is still the same as the single
+    one
+end note
+
+core -> gateway: << Success Create DO >>
 deactivate core
 
-[<- gateway: return order
-
+gateway -> user: << Success Create DO >>
 
 @enduml
