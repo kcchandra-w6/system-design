@@ -1,0 +1,76 @@
+@startuml create-do-from-so
+
+title Create DO From Sales Order
+
+Actor "user" as user
+Participant "navi-gateway" as gateway
+Participant "navi-core" as core
+database "navi-db" as db
+
+user -> gateway: create DO from sales order
+
+gateway -> core: create DO from sales order
+
+core -> core ++: << validate SO >>
+note right of core
+    - check if any of SO Line item already created DO from planning
+    - check if sales order is complete
+    - validate origin and destiantion location
+    - validate estimation date
+end note
+
+core -> core: fill empty location ID from location search
+
+core -> core: << create DO Payload >>
+note right of core
+    Prepared data:
+    - route location
+    - do header
+    - goods
+end note
+
+||40||
+
+core -> db: << pull access key >>
+note right of core
+    - populate access key for pre-fill the quotation
+    - cost/revenue or both
+    Keys -> ""optima.sales_order.detail.create_do.prefill_quotation_{type}.recommendation""
+end note
+
+db -> core: pulled access key
+core -> core: process access key
+
+
+create process_create_do
+core -> process_create_do: Call func Create DO
+activate process_create_do
+process_create_do -> process_create_do: validate & create DO
+process_create_do -> db: persisted new DO from SO
+process_create_do -> core: return DO ID
+core <-- process_create_do: error create DO
+destroy process_create_do
+gateway <-- core: return error create DO
+user <-- gateway: return error create DO
+deactivate process_create_do
+
+||40||
+
+core -> core: update SO Status
+core -> db: update SO Line item payloads
+
+create worker1
+core -> worker1: dispatch update SO After Update DO Created
+worker1 -> worker1: Update SO 
+activate worker1
+worker1 -> db: update SO status
+core <-- worker1: return either success or fail
+destroy worker1
+
+core -> db: get updated SO (complete with line item etc)
+core <- db --: << updated SO >>
+
+gateway <- core: Return sucess
+user <- gateway: Return sucess
+
+@enduml

@@ -1,0 +1,95 @@
+@startuml create-do-from-klaster
+
+actor "user" as user
+participant "navi-gateway" as gateway
+participant "navi-core" as core
+database "navi-db" as db
+
+user -> gateway: Request Create DO From Klaster
+
+gateway -> core: Request Create DO From Klaster
+
+core -> core ++: << validate request >>
+note right of core
+    - validate authentication (user id etc)
+    - check quantity, weight, uom etc
+    - cluster must not empty
+    - check order planning
+    - check route sequence
+    - calculate location duration, distance, unload date
+    - must not have duplicate cluster id
+    - planned cluster must not have DO
+    - unload date must greater than equal to load date
+end note
+
+core -> db: populate order clusters from plan
+db -> core: mapping Order >< Cluster
+
+||30||
+
+core -> db: << pull quotation access key >>
+note right of core
+    - populate access key for pre-fill the quotation
+    - cost/revenue or both
+    Keys -> ""optima.order_planning.create_do.prefill_quotation_{type}.recommendation""
+end note
+core <- db: << pulled quotation access key >>
+note right 
+    this access key will determine either the DO created will be 
+    created with cost/revenue or both based on recomendation
+    quotation
+end note
+
+||30||
+
+loop Each Cluster
+    core -> core: prepare klaster for create DO
+    note right of core
+        - preferred driver, truck, and kernet ID
+        - location
+        - goods
+    end note
+
+    ||20||
+
+    loop Each Order from Cluster
+        create "Process Create DO" as pcdo
+        core -> pcdo: Call func Create DO
+        activate pcdo
+        pcdo -> pcdo: Validate DO from Claster
+        pcdo -> db: create DO
+        db -> pcdo --: << DO Created >>
+        pcdo -> core: << Success Create DO >>
+        deactivate pcdo
+        destroy pcdo
+    end 
+
+    core -> db: update so line item histories
+    db --> core: << SO Line item updated >>
+
+    core -> db: update DO Detail into so line item
+    db --> core: << DO Detail updated >>
+
+    core -> db: insert generate cluster logs
+    db --> core: << Logs Created >>
+
+    create "Update SO Status Handler" as worker
+    core -> worker ++: Update so Status
+    worker -> worker: Update SO Related
+    note right of worker
+        - update DO ID within so line item
+        - update SO Status
+        - post webhook WA on sales order statsu updated
+    end note
+    worker --> core --: << SO Status Updated >>
+    destroy worker
+
+    core -> core: populate created DO
+end
+
+core -> gateway: returned created DO from claster update
+deactivate core
+
+gateway -> user: << updated cluster >>
+
+@enduml
