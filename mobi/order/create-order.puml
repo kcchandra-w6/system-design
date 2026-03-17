@@ -21,7 +21,6 @@ note right of core
     - validate SO Line item for create DO (avoid duplicate)
     - ensure plannable SO for DO
     - populate custom field for goods from SO
-    - 
 end note
 
 alt single DO
