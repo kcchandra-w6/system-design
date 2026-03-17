@@ -20,6 +20,8 @@ note right of core
         and driver)
     - any of existing order with delivery will be pulled to be used for
         populating the ""delivery_note_at""
+    - flag for assignment quotation (customer & vendor). Currently this flag
+        will be populated from order planning (smartplan/klaster) or sales order
 end note
 
 core <-- db: populate existing delivery notes from orders
@@ -32,11 +34,16 @@ note right of worker
     - spawn multiple goroutine at once
     - each goroutine will consume a DO
     - the generated pdf file will populated together to be merged into single PDF
-    - each 
 end note
 
 create "Worker Channel" as workerchannel
 core -> workerchannel: Concurently Send Delivery Order
+
+note over loop #FFAAAA
+     This loop currently is not going to use worker cause the performance 
+     of using worker is not significant because we are using third party 
+     in order to generate the PDF (pdfweasy)
+end note
 
 loop Each Delivery Order
     activate worker
@@ -65,6 +72,9 @@ end
 
 workerchannel -> core: Populate result generate PDF
 loop For Each PDF 
+    create "S3" as awsstorage
+    core -> awsstorage: Download PDF File binary
+    awsstorage -> core: << PDF File binary >>
     core -> core: Merge PDF files into single PDF
 end
 
