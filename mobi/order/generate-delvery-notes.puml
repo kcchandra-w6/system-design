@@ -1,0 +1,76 @@
+@startuml generate-delivery-notes
+
+title Generate Delivery Notes/Surat Jalan
+
+actor "User" as user
+participant "Navi Gateway" as gateway
+participant "Navi Core" as core
+participant "Navi Storage" as nstorage
+database "Navi Core" as db
+
+user -> gateway: Generate Delivery Notes
+
+gateway -> core: Generate Delivery Notes
+
+activate core
+core -> core: Validate Delivery Notes Request
+note right of core
+    - check for every order if it exists
+    - order status must on going (at least has been assigned to truck
+        and driver)
+    - any of existing order with delivery will be pulled to be used for
+        populating the ""delivery_note_at""
+end note
+
+core <-- db: populate existing delivery notes from orders
+
+== Generate Multiple ==
+
+create "Worker" as worker
+core -> worker: Spawn worker for generate Delivery Note
+note right of worker
+    - spawn multiple goroutine at once
+    - each goroutine will consume a DO
+    - the generated pdf file will populated together to be merged into single PDF
+    - each 
+end note
+
+create "Worker Channel" as workerchannel
+core -> workerchannel: Concurently Send Delivery Order
+
+loop Each Delivery Order
+    activate worker
+    workerchannel -> worker: Consumed And Generate Delivery Order
+    worker -> worker: Generate Delivery Note
+    note right of worker
+        - generate using existing function
+        - generate based on customer organizations
+        - supossedly currently only the PDF one is being supported
+    end note
+
+    worker -> db: Update delivery note for DO
+    worker -> nstorage: Upload to S3
+    nstorage -> worker: << PDF URL >>
+
+    alt Success
+        worker -> workerchannel: Populate generated PDF file
+    else Failed
+        worker -> workerchannel: populate fail Delivery Order
+    end
+
+    deactivate worker
+end
+
+== End Generate Multiple ==
+
+workerchannel -> core: Populate result generate PDF
+loop For Each PDF 
+    core -> core: Merge PDF files into single PDF
+end
+
+core -> core: Send Email to User for generated Delivery Notes
+
+core -> gateway: << Success Generate Delivery Notes >>
+gateway -> user: << Success Generate Delivery Notes >>
+
+@enduml
