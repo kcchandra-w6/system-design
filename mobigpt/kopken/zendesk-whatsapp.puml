@@ -1,0 +1,74 @@
+@startuml kopken-zendesk-whatsapp-integration
+
+title Kopken Zendesk WhatsApp Integration
+
+actor "User" as user
+participant "WhatsApp" as wa
+participant "Sunshine Conversation" as sunshine
+participant "Zendesk" as zendesk
+participant "N8N" as n8n
+participant "N8N Database" as db
+
+user -> wa: << Send Message >>
+
+wa -> sunshine: << Callback >>
+
+sunshine -> zendesk: << Callback >>
+
+zendesk -> n8n: << Webhook Call >>
+    note right
+    <code>
+        {
+            ticket_id: "",
+            conversation_id: "",
+            ticket_requester_by_phone_number: "",
+            ticket_requester_by_name: "",
+            ticket_handled_by_mobitech: ""
+            ...
+        }
+    </code>
+    end note
+
+group Workflow [WhatsApp Webhook]
+    n8n -> n8n: << Check Conversation ID >>
+
+    alt conversation_id is empty
+        n8n -> zendesk: << Get Ticket Audits >>
+        zendesk -> n8n: << Audits >>
+        n8n -> n8n: << Extract Conversation ID >> 
+    end
+
+    n8n -> sunshine: << Get Messages >>
+    sunshine -> n8n: << Messages >>
+
+    group Subworkflow [Insert Message & Retrieve Latest]
+        n8n -> db: << Get Message Transactions >>
+        db -> n8n: << Message >>
+        n8n -> n8n: << Extract Information >>
+        note right
+            - get latest message from transaction DB
+            - extract all message from Zendesk API only for the 
+                unrecorded one (based on message ID)
+            - extract latest message from Zendesk API
+        end note
+
+        n8n -> db: << Insert New Message >> 
+    end
+
+    n8n -> n8n: << Kopken Main Flow >>
+    note right
+        - prepare payload chat message
+        - extract category
+        - extract action
+        - replied message/close ticket/assign to agent
+    end note
+
+    n8n -> zendesk: << Update Ticket >>
+    n8n -> sunshine: << Response >>
+    
+end
+
+sunshine -> wa: << Response >>
+wa -> user: << Response >>
+
+@enduml

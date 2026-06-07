@@ -1,0 +1,117 @@
+@startuml Race Condition
+
+title "Race Condition"
+
+actor "User" as user
+participant "WhatsApp" as wa
+participant "Zendesk" as zendesk
+participant "N8N Server" as n8n
+participant "Database" as db
+
+user -> wa: << Send Message A..C >>
+    note right
+        dalam kurun waktu kurang dari 10 detik antar chat
+    end note
+wa -> zendesk: trigger Webhook
+zendesk -> n8n: trigger Webhook
+
+group "Mas Jan 1"
+    user -> wa: << Send Message A >>
+    wa -> zendesk: << Trigger Webhook >>
+    zendesk -> n8n: << Trigger Webhook >>
+    n8n -> db: << Update execution_state `Procecing` >>
+
+    user -> wa: << Send Message B >>
+        note right
+            diabaikan
+        end note
+    user -> wa: << Send Message C >>
+        note right
+            diabaikan
+        end note
+    wa -> zendesk: << Trigger Webhook >>
+    zendesk -> n8n: << Trigger Webhook >>
+    n8n -> db: << Check execution_state >>
+    n8n <-- db: << Return execution_state >>
+end
+
+group "Mas Jan 2"
+    user -> wa: << Send Message A >>
+    destroy wa
+    wa -> zendesk: << Trigger Webhook >>
+    zendesk -> n8n: << Trigger Webhook >>
+    n8n -> n8n: Wait
+    ...Wait 10s...
+
+    user -> wa: << Send Message B >>
+    destroy wa
+    user -> wa: << Send Message C >>
+    wa -> zendesk: << Trigger Webhook >>
+    zendesk -> n8n: << Trigger Webhook >>
+    n8n -> db: << Check execution_state >>
+    n8n <-- db: << Return execution_state >>
+    n8n -> n8n: Wait
+    ...Wait 10s...
+    n8n -> db: << Update execution_state `Procesing` >>
+    n8n -> n8n: << Process Message C >>
+    n8n -> zendesk: << Reply >>
+    n8n -> db: << Update execution_state `Normal/Open/New` >>
+    zendesk -> wa: << Reply >>
+    wa -> user: << Reply >>
+
+    user -> wa: << Send Message D >>
+        note right
+            on going process ketika chat C sedang berjalan
+        end note
+    n8n -> db: << Check execution_state By Ticket ID >>
+    n8n <-- db: << Return execution_state >>
+    
+    alt Check execution_state is Procesing
+        n8n -> zendesk: << bypass Process >>
+        destroy zendesk
+        note right
+            di abaikan, karena masih balas reply yang C
+        end note
+    else Check execution_state is not Procesing
+        n8n -> n8n: << Wait >>
+        ...Wait 10s...
+        n8n -> db: << Update execution_state `Procesing` >>
+    end
+end
+
+group Scheduler
+    [->n8n: << Trigger Every 10s >>
+
+    group di loop satu per- satu
+        n8n -> db: << Get Stale t_chats >>
+        note right
+            ambil semua t_chat data yang statusnya `procesing`
+            dan sudah mengambang lebih dari 10s
+        end note
+
+        loop for each stale t_chats
+            n8n -> db: << Update execution_state >>
+            n8n <-- db: << OK >>
+        end
+    end
+
+    group query direct ke postgres
+        n8n -> db: << Mass Update >>
+        note right
+            <b>update direct all stale data: </b>
+            <code>
+                update t_chats set execution_state = 'ready' 
+                where id in (
+                    select id
+                    from t_chats
+                    where execution_state = 'procesing'
+                        and updated_at <= now() - interval '1 minutes'
+                )
+            </code>
+
+            apakah akan block IO query di db? ngelock?
+        end note
+    end 
+end
+
+@enduml

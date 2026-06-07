@@ -1,0 +1,58 @@
+@startuml Interaction - Assign Agent
+
+title Interaction - Assign Agent
+
+actor "User A" as userA
+actor "Bot" as bot
+participant "Redis" as redis
+
+
+userA -> bot: << halo >>
+
+bot -> userA: << ya lala >>
+
+userA -> bot: promo hari ini apa ?
+
+group Default
+    bot -> userA: template
+    note right
+        Mohon maaf sudah membuat pengalaman yang kurang menyenangkan saat menggunakan aplikasi kami🙏🏻
+        Apakah kakak ingin disambungkan dengan agent Customer Service kami?
+
+        Kami informasikan bahwa jam operasional Customer Service Kenangan Group adalah setiap hari Senin – Minggu, pukul 08.00 – 22.00 WIB.
+
+    ++ Button (Ya Chat CS, No Continue AI, End Chat)
+    end note
+    bot --> redis: << Save Intent: Direct To CS >>
+
+    group Klik Button
+        userA -> bot: << Ya Chat CS >>
+        note right
+            user nge klik button
+        end note
+        bot <-- redis: pull is intent
+        bot -> bot: << Intent + Jawab YA Chat CS >>
+    end
+
+    group chat random
+        useA -> bot: << chat random: Ya boleh lah, oke etc >>
+        bot <-- redis: pull is intent
+        bot -> bot: << Fallback: Check Answer + Extract Category >>
+    end
+end
+
+group bypass
+    bot -> bot: << extract category + action, direct to cs >>
+    bot -> bot: << change to force assign cs >>
+    bot -> bot: << bypass template >>
+    bot -> userA: << Assign >>
+    note right
+        Mohon maaf atas ketidaknyamanannya 🙏🏻
+        Untuk bantuan lebih lanjut kami sambungkan ke Customer Service Kenangan Group.
+    end note
+end
+
+bot -> userA: << Connect CS + Template >>
+
+
+@enduml

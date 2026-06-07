@@ -1,0 +1,51 @@
+@startuml zendesk-google-map-review-integration`
+
+title Zendesk Google Map and Playstore Integration
+
+actor "User" as user
+participant "Google Map/Playstore" as google
+participant "Zendesk" as zendesk
+participant "N8N" as n8n
+participant "Monitoring System" as monitoring
+participant "Mobichat" as mobichat
+
+user -> google: Create Review
+
+google -> zendesk ++: << Push Review >>
+
+zendesk -> zendesk: Create Ticket
+||10||
+zendesk -> n8n ++: Trigger N8N Workflow via Webhook
+
+n8n --> monitoring: << Push Log Review >>
+    note right
+        inform the devs about ticket ID, review message
+    end note
+
+n8n -> mobichat: << Check Quota >>
+n8n <[#red]- mobichat: << Quota Result: Not Enough >>
+
+n8n -> n8n: Process Review
+    note right
+        - Extract tickets & review message
+        - Based on constructed <b>system prompt</b> analyse the review message
+            - extract the stars given (by icons)
+            - understund the review assignment
+            - handle corner case review (stars and review is contradicts)
+        - Generate response using <b>AI</b>
+    end note
+
+n8n --> mobichat: << Decrease Quota >>
+n8n --> monitoring: << Push Summary Execution >>
+
+n8n -> zendesk --: Update Tickets
+destroy n8n
+    note right
+        - Update with comments to response the review
+        - Update tickets Status with solved
+    end note
+
+zendesk -> google --: << Response Review Comment >>
+destroy zendesk
+
+@enduml

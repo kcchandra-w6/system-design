@@ -1,0 +1,92 @@
+@startuml zendesk-instagram-integration
+
+title Zendesk Instagram Integration
+
+actor "User" as user
+participant "Instagram" as instagram
+participant "Zendesk" as zendesk
+participant "N8N" as n8n
+participant "Monitoring System" as monitoring
+participant "Mobichat" as mobichat
+participant "Redis" as redis
+participant "AI Bot" as bot
+
+
+user -> instagram: << DM Official Account >>
+
+instagram -> zendesk ++: << Push Interaction >>
+
+zendesk -> zendesk: Create Ticket
+||10||
+zendesk -> n8n --++: << Trigger Workflow via Webhook >>
+
+n8n -> mobichat: << Check Quota >>
+n8n <[#red]- mobichat: << Quota Result: Not Enough >>
+
+n8n -> zendesk ++: << Retrieve Ticket Comments >>
+zendesk -> n8n --: << Ticket Comments >>
+    note right
+        get all chat history from ticket.
+        Zendesk put the interactions as a comments within the ticket.
+    end note
+
+group Checking Latest Message
+    n8n -> redis: << Push Message ID >>
+    n8n -> n8n: << Wait 10s >>
+    n8n <- redis: << Retrieve: Message ID >>
+    alt Message ID Equal
+        n8n <- redis ++: << Retrieve Intent >>
+
+        n8n --> monitoring: << Push Log Interaction >>
+            note right
+                inform the devs about ticket ID, interaction message
+            end note
+
+        alt Direct To CS Agent
+            n8n -> bot:  << Analyse the User Answer >>
+            bot -> n8n: << User Answer >>
+            
+            alt Answer YES:
+                n8n -> n8n ++: << Assign Ticket to Agent >>
+                n8n --> monitoring: << Push Log Assignment >>
+                n8n -> zendesk: << Respond User Message >>
+                destroy zendesk
+            else Answer NO:
+                n8n -> n8n: << Exec Main Flow >>
+                ||10||
+            end
+
+        else Exec Main Flow
+            n8n -> n8n: << Exec Main Flow >>
+            ||10||
+        end
+
+        n8n --> monitoring: << Push Log Main Flow >>
+        n8n -> n8n: << Extract Result >>
+
+        alt Result: Set/Update Intent
+            n8n -> redis: << Save Intent >>
+
+        else Respond User
+            n8n -> zendesk: << Update Tickets: Respond User Message >>
+            destroy zendesk
+            zendesk -> instagram: << Respond User Message >>
+
+        else Update Custom Field
+            n8n -> zendesk: << Update Tickets: Update Custom Field >>
+            destroy zendesk
+
+        else Solve & Close Ticket
+            n8n -> zendesk: << Close Ticket >>
+            destroy zendesk
+
+            zendesk -> instagram: << Respond Closing >>
+        end
+        
+    else Message ID Not Equal
+        n8n ->] --: << Stop Process >>
+        destroy n8n
+    end
+end
+
+@enduml
