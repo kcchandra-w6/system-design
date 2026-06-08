@@ -1,0 +1,26 @@
+@startuml Zendesk-Sunshine API
+
+title Zendesk SunShine Integrations
+
+actor "User" as user
+participant "WhatsApp" as wa
+participant "SunShine API" as sunshine
+participant "Zendesk" as zendesk
+participant "Mobitech N8N" as mobitech
+
+user -> wa: << Send Message >>
+
+wa -> sunshine: << Webhook META >>
+sunshine --> zendesk: << Webhook Zendesk: Create Ticket >>
+... Waiting Ticket ...
+sunshine --> zendesk: << Ticket: Created >>
+sunshine -> mobitech ++: << Webhook Sunshine >>
+
+zendesk -> mobitech: << Trigger: Ticket Created >>
+
+mobitech -> sunshine --: << Reply Message >>
+destroy mobitech
+sunshine -> wa: << Replied >>
+wa -> user: << Reply Message >>
+
+@enduml

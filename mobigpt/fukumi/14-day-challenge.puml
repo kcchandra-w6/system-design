@@ -1,0 +1,80 @@
+@startuml 14-day-challenge
+
+title 14 Day Fukumi Challenge
+
+actor "Admin" as admin
+participant "Mobichat" as mc
+participant "WhatsApp" as wa
+actor "Customer" as customer
+participant "N8N" as n8n
+participant "Postgre" as db
+participant "Fukumi App" as app
+
+group Admin Perspective [Initiate Program]
+    admin -> mc: << Send Broadcast Program >>
+    mc -> wa: << Send Broadcast Program >>
+end
+
+||20||
+
+group Customer Perspective [Receive Program]
+    wa -> customer: << Broadcast Program Received >>
+    customer -> wa: << Response Program >>
+    wa -> n8n ++: << Process Program Response >>
+
+    alt Program Rejected
+        n8n -> n8n: << Generate Response >>
+        n8n -> wa: << Send Response >>
+        wa -[#Red]> customer: << Send Response >>
+    else Program Accepted
+        n8n -> db: << Generate Transaction Data >>
+        n8n -> n8n: << Transaction Pending for Sending Package >>
+        n8n -> wa --: << Send Response >>
+        wa -[#Green]> customer: << Send Response >>
+    end
+end
+
+||20||
+
+?->admin: << Send Package Physically >>
+admin -> app: << Update Transaction Status to `Package Sent` >>
+
+||20||
+
+group Customer Perspective [Receive Package]
+    ?->customer: << Package Received >>
+    customer -> wa: << Scan QR Code & wa.me >>
+    wa -> n8n: << User receive the package >>
+    n8n -> db: << Update Transaction >>
+    n8n -> db: << Activate Challenge Tracking >>
+end
+
+||20||
+
+loop 14 days [Daily Notifications]
+    n8n -> db: << Check Challenge Tracking >>
+    n8n --> db: << Return Challenge Tracking >>
+    alt Challenge Tracking is Active
+        group Daily Notifications [Daily Notifications]
+            n8n -> mc: << Generate Mobiflow Form >>
+            mc -> n8n: << Form >>
+            n8n -> db: << Insert Today Transaction Form >>
+            n8n -> wa: << Send Form to User >>
+            wa -> customer: << Form >>
+        end
+
+        group User Perspective [User Filling Form]
+            customer -> mc: << Filling Form >>
+            mc -> n8n: << Webhook Call >>
+            n8n -> db: << Update Transaction >>
+            n8n -> wa: << Send Response >>
+            wa -[#Green]> customer: << Send Response >>
+        end
+    else Challenge Tracking is not Active
+        n8n -> n8n: << Bypass Process >>
+    end
+end
+
+||20||
+
+@enduml
