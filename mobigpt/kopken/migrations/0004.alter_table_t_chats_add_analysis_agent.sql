@@ -1,0 +1,1 @@
+ALTER TABLE t_chats ADD COLUMN verification_result varchar NULL;
