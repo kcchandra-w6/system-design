@@ -7,12 +7,16 @@ participant "Mobichat" as mc
 participant "WhatsApp" as wa
 actor "Customer" as customer
 participant "N8N" as n8n
-participant "Postgre" as db
+participant "MySQL" as db
 participant "Fukumi App" as app
 
 group Admin Perspective [Initiate Program]
     admin -> mc: << Send Broadcast Program >>
     mc -> wa: << Send Broadcast Program >>
+    note right
+        hanya orang yang ke tag `pejuang_fukumi_*` -> * nomer yang bakal di broadcast
+        kata kunci - 14-day training challenge FUKUMI
+    end note
 end
 
 ||20||
@@ -27,7 +31,8 @@ group Customer Perspective [Receive Program]
         n8n -> wa: << Send Response >>
         wa -[#Red]> customer: << Send Response >>
     else Program Accepted
-        n8n -> db: << Generate Transaction Data >>
+        n8n -> app: << Generate Transaction Data >>
+        app --> db: << Insert Transaction Data >>
         n8n -> n8n: << Transaction Pending for Sending Package >>
         n8n -> wa --: << Send Response >>
         wa -[#Green]> customer: << Send Response >>
@@ -36,24 +41,28 @@ end
 
 ||20||
 
-?->admin: << Send Package Physically >>
+admin -->?: << Send Package >>
 admin -> app: << Update Transaction Status to `Package Sent` >>
 
 ||20||
 
 group Customer Perspective [Receive Package]
-    ?->customer: << Package Received >>
+    ?-[#Green]>customer: << Package Received >>
     customer -> wa: << Scan QR Code & wa.me >>
     wa -> n8n: << User receive the package >>
-    n8n -> db: << Update Transaction >>
-    n8n -> db: << Activate Challenge Tracking >>
+    n8n -> app: << Update Transactions >>
+    app -> db: << Update Transactions >>
+    app -> app: << Activate Challenge Tracking >>
+    app -> n8n: << Challenge Tracking Activated >>
 end
 
 ||20||
 
 loop 14 days [Daily Notifications]
-    n8n -> db: << Check Challenge Tracking >>
-    n8n --> db: << Return Challenge Tracking >>
+    n8n -> app: << Check Challenge Tracking >>
+    app -> db: << Pull Ongoing Challenge Tracking >>
+    db --> app: << Challenge >>
+    app -> n8n: << Challenge >>
     alt Challenge Tracking is Active
         group Daily Notifications [Daily Notifications]
             n8n -> mc: << Generate Mobiflow Form >>
@@ -66,9 +75,19 @@ loop 14 days [Daily Notifications]
         group User Perspective [User Filling Form]
             customer -> mc: << Filling Form >>
             mc -> n8n: << Webhook Call >>
-            n8n -> db: << Update Transaction >>
+            n8n --> app: << Call API Update Transactions >>
             n8n -> wa: << Send Response >>
             wa -[#Green]> customer: << Send Response >>
+        end
+
+        group Checking Transaction [Finish Challenge]
+            n8n -> n8n: << Check Challenge Finished >>
+            n8n -> app: << Check Challenge Finished >>
+            app -> db: << Pull Finished Challenge Tracking >>
+            db --> app: << Finished Challenge Tracking >>
+            app -> n8n: << Finished Challenge Tracking >>
+            n8n -> mc: << Replied Thankyou >>
+            mc -> wa: << Send Thankyou Message >>
         end
     else Challenge Tracking is not Active
         n8n -> n8n: << Bypass Process >>
