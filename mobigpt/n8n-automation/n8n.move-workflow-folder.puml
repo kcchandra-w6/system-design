@@ -1,0 +1,30 @@
+@startuml move-workflow-folder
+
+title Move Workflow Folder
+
+actor User as user
+participant Mobichat as mobichat
+participant N8N as n8n
+
+user -> mobichat ++: Create new BOT
+
+mobichat -> n8n: Duplicate Workflow
+note right
+    - create workflow from existing template
+    - template can not be placed in a folder
+end note
+
+n8n -> mobichat: Created Workflow
+note right
+    return workflow ID and information related to created workflow
+end note
+
+mobichat -> n8n: Call Webhook to Update Workflow Folder
+
+n8n --> n8n: Exec Workflow Move Folder
+
+n8n -> mobichat: Workflow Folder Updated
+
+mobichat -> user --: BOT Created
+
+@enduml
