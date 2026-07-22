@@ -1,0 +1,41 @@
+@startuml component-diagram
+!theme plain
+skinparam componentStyle rectangle
+
+actor "Customer" as client
+
+package "Frontend" {
+    [Web / Mobile App] as web
+}
+
+package "API Gateway Layer" {
+    [Kong API Gateway] as gateway
+}
+
+package "Microservices" {
+    [Auth Service] as auth
+    [Order Service] as order
+    [Payment Service] as payment
+    [Inventory Service] as inventory
+}
+
+database "Order DB" as db_order
+database "Inventory DB" as db_inv
+
+queue "RabbitMQ" as broker
+
+client --> web
+web --> gateway : HTTPS
+
+gateway --> auth : Validate Token
+gateway --> order : Create Order
+gateway --> payment : Process Pay
+
+order --> db_order
+inventory --> db_inv
+
+order --> broker : Publish "Order Created"
+broker --> payment : Consume
+broker --> inventory : Consume
+
+@enduml

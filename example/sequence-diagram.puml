@@ -1,0 +1,37 @@
+@startuml sequence-diagram
+!theme plain
+autonumber
+
+actor "Customer" as User
+participant "API Gateway" as Gateway
+participant "Order Service" as Order
+database "Order DB" as DB
+participant "Payment Service" as Payment
+
+User -> Gateway: POST /orders (Payload)
+activate Gateway
+
+Gateway -> Order: Forward Request
+activate Order
+
+Order -> Order: Validate Stock & Price
+
+Order -> DB: Save Order (Status: PENDING)
+activate DB
+DB --> Order: Order Saved
+deactivate DB
+
+Order -> Payment: Request Payment Charge
+activate Payment
+Payment --> Order: Payment Success (HTTP 200)
+deactivate Payment
+
+Order -> DB: Update Status (Status: PAID)
+
+Order --> Gateway: Return Order Success
+deactivate Order
+
+Gateway --> User: HTTP 201 (Order Created)
+deactivate Gateway
+
+@enduml
