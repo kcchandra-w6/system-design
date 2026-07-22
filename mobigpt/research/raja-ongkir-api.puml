@@ -1,0 +1,134 @@
+@startuml raja-ongkir-api
+
+title Raja Ongkir API
+
+actor "User" as user
+participant "AI Agent" as bot
+participant "Raja Ongkir" as raja_ongkir
+
+user -> bot: [POST] /mobichat/chat
+note over user: lokasi destinasi
+
+bot -> bot: Extract Detail Lokasi
+note over bot: provinsi, kota, kecamatan, kelurahan
+
+||30||
+
+group Cost Calculation Step by Step
+    bot -> raja_ongkir: ""[GET] /v1/destination/province""
+    bot <-- raja_ongkir: ""[200] province""
+
+    ||10||
+
+    bot -> raja_ongkir: ""[GET] /v1/destination/city/{provinceId}""
+    bot <-- raja_ongkir: ""[200] cities""
+
+    ||10||
+
+    bot -> raja_ongkir: ""[GET] /v1/destination/district/{cityId}""
+    bot <-- raja_ongkir: ""[200] district""
+
+    ||10||
+
+    bot -> raja_ongkir: ""[GET] /v1/destination/subdistrict/{districtId}""
+    bot <-- raja_ongkir: ""[200] subdistricts""
+
+    ||10||
+
+    bot -> raja_ongkir: ""[POST] /v1/calculate/domestic-cost""
+    bot <-- raja_ongkir: ""[200] cost""
+end
+
+||30||
+
+group Cost Calculation Directly
+    bot -> raja_ongkir: ""[GET] /v1/calculate/domestic-cost""
+    note over bot
+        cari lokasi alamat langsung 
+        pake label/partial word
+    end note
+
+    bot <-- raja_ongkir: ""[200] locations""
+    note over raja_ongkir 
+        langsung balik province, district, 
+        dan subdistrict id yang siap pakai
+        untuk API calculate distance cost
+    end note
+
+    bot -> raja_ongkir: ""[POST] /v1/calculate/domestic-cost""
+    note right of raja_ongkir
+        - parameter menggunakan ""origin""<color:red>*</color> (district ID), 
+        ""destination""<color:red>*</color> (district ID)
+        ""weight""<color:red>*</color>, ""courier""<color:red>*</color>
+        - courier -> digabung pake code, separator pakai "":""
+        - balikan result nya:
+        <code>
+        {
+          "meta": {
+            "message": "...",
+            "code": 200,
+            "status": "success"
+          },
+          "data": [
+            {
+              "name": "JNE",
+              "code": "jne",
+              "service": "REG",
+              "description": "Layanan Reguler",
+              "cost": 18000,
+              "etd": "2-3 Hari"
+            }
+          ]
+        }
+        </code>
+        
+    end note
+    bot <-- raja_ongkir: ""[200] cost""
+end
+
+bot -> bot: Format response
+bot -> user: ""[200] Response""
+
+note over raja_ongkir
+    **<size:18>Tambahan Informasi</size>**
+
+    Pada group "Cost Calculation Step by Step", AI Agent akan 
+    meminta data lokasi tujuan secara berurutan: provinsi, 
+    kota/kabupaten, kecamatan, lalu kelurahan/subdistrict. 
+    Setelah lengkap, ongkir dihitung lewat 
+    endpoint /v1/calculate/domestic-cost.
+
+    Informasi Tambahan
+    - Paket
+        - Free version
+            - shipping API: **100/hari**
+            - Payment & Qris API: **unlimited/hari**
+        - Paid Version
+            - Faster response time
+            - Package: Personal
+                - shipping API: **25.000/hari**
+            - Package: Enterprise
+                - shipping API: **50.000/hari**
+    - Ada perbedaan antara API URLs untuk menghitung biaya
+    rute domestik dan rute internasional
+
+    Supported vendor ongkir
+    - domestik
+        - jne
+        - sicepat
+        - sap (SAP Express)
+        - ninja
+        - jnt
+        - tiki
+        - wahana
+        - pos (Pos Indonesia)
+        - sentral (Sentral Cargo)
+        - lion
+        - rex (Royal Express Asia)
+    - internasional
+        - jne
+        - tiki
+        - pos (Pos Indonesia)
+end note
+
+@enduml

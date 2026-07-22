@@ -1,0 +1,90 @@
+@startuml biteship-ongkir-api
+
+title Biteship Ongkir API
+
+actor "User" as user
+participant "AI Agent" as bot
+participant "Biteship" as biteship
+
+user -> bot: [POST] /mobichat/chat
+note over user: lokasi destinasi
+
+bot -> bot: Extract Detail Lokasi
+note over bot: provinsi, kota, kecamatan, kelurahan
+
+bot -> biteship: [GET] /v1/maps/areas
+bot <-- biteship: [200] area
+note over biteship: mengembalikan informasi mapping area\n berdasarkan nama
+note right of biteship
+    JSON Result:
+    <code>
+    {
+        "success": true,
+        "areas": [
+            {
+                "id": "IDNP6IDNC148IDND843IDZ12250",
+                "name": "Pesanggrahan, Jakarta Selatan, DKI Jakarta. 12250",
+                "country_name": "Indonesia",
+                "country_code": "ID",
+                "administrative_division_level_1_name": "DKI Jakarta",
+                "administrative_division_level_1_type": "province",
+                "administrative_division_level_2_name": "Jakarta Selatan",
+                "administrative_division_level_2_type": "city",
+                "administrative_division_level_3_name": "Pesanggrahan",
+                "administrative_division_level_3_type": "district",
+                "postal_code": 12250
+            }
+        ]
+    }
+    </code>
+end note
+
+bot -> biteship: [POST] /v1/rates/couriers
+bot <-- biteship: [200] rates
+note right of biteship
+    Mekanisme:
+    - bisa search by ""cooridnates"", ""postal codes"", 
+    ""areal id"", ""mix"", ""type""
+    - harus menggunakan salah satu parameter yang
+    disebutkan di atas
+    - field2 lain yang harus dikirim adalah: ""items"", 
+    ""couriers"", dan ""type""
+
+    JSON Result:
+    <code>
+    {
+        "origin_postal_code": 12440,
+        "destination_postal_code": 12240,
+        "couriers": "sicepat,jne",
+        "destination_cash_on_delivery": 199000,
+        "destination_cash_on_delivery_type": "7_days",
+        "items": [
+            {
+            "name": "Shoes",
+            "description": "Black colored size 45",
+            "value": 199000,
+            "length": 30,
+            "width": 15,
+            "height": 20,
+            "weight": 200,
+            "quantity": 1
+            }
+        ]
+    }
+    </code>
+end note
+
+note across
+    **<size:16>Biteship Ongkir API</size>**
+
+    Courier yang disupport
+    - grab
+    - gojek
+    - jne
+    - paxel
+    - lalamove
+    ...
+    etc on [[https://biteship.com/id/docs/api/couriers/overview Link]]
+end note
+
+@enduml
