@@ -1,0 +1,52 @@
+@startmindmap Kopken System
+
+title Kopken System Architecture
+
+# Zendesk
+
+## Sunshine Webhook
+### WhatsApp
+
+## Ticket Webhook
+### Instagram
+### Google PlayStore
+### Google Maps
+### Ticket Created/Updated
+
+## Automation
+### Auto Close Ticket - Business Hours (2 Hour)
+### Auto Close Ticket - WhatsApp/Instagram (1 Hour)
+
+# N8N
+
+## Webhook
+
+### Integration
+#### WhatsApp
+#### Instagram
+#### Google PlayStore
+#### Google Maps
+#### CSAT Form
+
+### Util
+
+#### Webhook
+##### Sync Ticket
+##### Sync Zendesk Tags
+##### Sync FAQs
+##### Close Ticket
+##### Assign Agent
+
+#### Manual Trigger
+##### Check Accuracy
+
+## Scheduler
+### Auto Close Ticket
+### Pull Ticket Zendesk
+### Retrier Error
+
+## Util
+### Check Accuracy
+
+
+@endmindmap
