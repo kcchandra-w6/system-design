@@ -1,0 +1,117 @@
+@startuml BinderByte API
+
+title BinderByte API
+
+actor "User" as user
+participant "AI Agent" as bot
+participant "BinderByte Service" as bb
+
+user -> bot: << Chat Location >>
+activate bot
+
+bot -> bot: << Extract Location >>
+note right of bot
+    Coba cari informasi sedetail2 nya.
+    Bisa langsung informasi lokasi or lewat 
+    daerah, kecamatan, etc sampai puncaknya Provinsi.
+end note
+
+bot -> bb: ""[GET] /v1/locations""
+note right of bb
+    Search Query:
+    - search=xxx
+    - api_key=xxx
+
+    Result:
+    <code>
+    {
+        "code": "200",
+        "message": "Successfully received data",
+        "data": [
+            {
+                "id": "village_33.22.11.2003",
+                "type": "village",
+                "label": "Asinan, Bawen, Semarang (50661)"
+            }
+        ]
+    }
+    </code>
+
+    notes: 
+    - cari lokasi yang mau dituju
+    - probably mesti 2x call
+end note
+
+bot -> bb: ""[POST] /v1/cost""
+note right of bb
+    Search Query:
+    - origin=xxx
+    - destination=xxx
+    - weight=xxx
+    - courier=xxx
+    - api_key=xxx
+
+    Result:
+    <code>
+    {
+        "code": "200",
+        "message": "Successfully calculated cost",
+        "data": {
+            "origin": {
+                "id": "dist_36.72.08",
+                "label": "Citangkil, Cilegon"
+            },
+            "destination": {
+                "id": "dist_32.73.25",
+                "label": "Cibiru, Bandung"
+            },
+            "weight": "1",
+            "results": [
+                {
+                    "code": "ninja",
+                    "name": "Ninja Van",
+                    "costs": [
+                        {
+                            "code": "ninja",
+                            "name": "Ninja Van",
+                            "service": "STANDARD",
+                            "type": "Standard Service",
+                            "price": "12000",
+                            "estimated": "- hari"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    </code>
+end note
+
+bot -> bot: << Format Result >>
+
+bot -> user: << Show Result >>
+deactivate bot
+
+note over bb
+    **<size:16>BinderByte API</size>**
+
+    - API Key bisa di generate lewat [[https://hub.binderbyte.com/keys Link]]
+    - Terdapat cost untuk setiap hit
+        1. API Lokasi 5 credit/hit
+        2. API Cek Ongkir/Cost 5 credit/hit
+
+    - Minimal Top-up di 5.000 credits
+        - bisa custom topup
+        - paket top up ada 10k, 50k, 100k
+        - 10k akan mendapat 10k credits
+
+    - Supported vendor
+        - JNE
+        - J&T
+        - SiCepat
+        - Pos Indonesia
+        etc
+        Note: mainly adah vendor-vendor yang sering digunakan di Indonesia
+end note
+
+@enduml
