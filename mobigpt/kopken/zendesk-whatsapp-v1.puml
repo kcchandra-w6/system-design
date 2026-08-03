@@ -1,0 +1,105 @@
+@startuml whatsapp-integration-zendesk
+
+title WhatsApp Integration
+
+actor "User" as user
+participant "WhatsApp" as wa
+participant "Sunshine ZD" as ss
+participant "Zendesk" as zd
+participant "Bot N8N" as bot
+participant "Mobichat" as mc
+database "Redis" as redis
+database "PostgreSQL" as db
+
+user -> wa: << Send Message >>
+
+wa -> ss: ""[POST] Callback Meta""
+
+ss -> zd: ""[POST] Create Ticket Zendesk""
+
+ss -> bot: ""[POST] /webhook/zendesk-kopken""
+activate bot #Yellow
+
+bot -> mc: << Check Quota >>
+
+alt Quota Not Available
+    bot -[#Red]> zd: << Assign Agent >>
+    ?<- zd: << Waiting Assign Playlist >>
+else Quota Available
+    bot -> bot: << Continue Proceed >>
+end
+
+bot -> zd: ""[GET] /sc/v2/apps/{app_id}/conversations/{conversation_id}/messages""
+note left of bot
+    get all conversation message
+    based on active user
+end note
+zd --> bot: << messages >>
+
+bot -> redis: << Push Message ID >>
+
+bot -> bot: << Retrieve Ticket & User >>
+note left of bot
+    retrieve ticket and user information
+    ensure ticket_id is fetched
+end note
+
+...+-30 seconds...
+
+zd --> bot: << Ticket >>
+zd --> bot: << User >>
+
+alt Ticket Handled By Agent
+    bot -[#Grey]>?: << Ignore >>
+else
+    bot -> bot: << Continue Proceed >>
+end
+
+bot -> db: << Insert Log Interaction >>
+
+bot <- redis: << Retrieve Intent >>
+
+alt Intent Assign Agent
+    bot -[#Blue]> zd: << Assign Agent >>
+    ?<- zd: << Waiting Assign Playlist >>
+else 
+    bot -> bot: << Continue Proceed >>
+end
+
+bot <- redis: << Get Last Message ID >>
+
+alt Last Message
+    bot -> zd: ""[PUT] /sc/v2/apps/{app_id}/conversations/{conversation_id}/passControl""
+    note left of bot
+        switch control from zendesk
+        AI Bot into Agent.
+    end note
+
+    bot -> bot: << Construct Greetings >>
+    bot -> zd: ""[POST] /sc/v2/apps/{app_id}/conversations/{conversation_id}/messages""
+    note left of bot
+        send greetings message to user
+        for first time in a ticket
+    end note
+
+    bot -> bot: << Exec Main Flow >>
+    bot <--?: << Result & Actions >>
+else Ignore Execution
+    bot -[#YellowGreen]>]: << Ignore >>
+end
+
+bot -> zd: << Update Ticket >>
+
+group Send Reply
+    bot -> ss: ""[POST] /{conversationId}/messages""
+    note left of bot: reply message
+
+    bot -> mc: ""[POST] /plan/decrease-plan""
+end
+deactivate bot
+
+ss -> wa: << Send Message >>
+
+wa -> user: << Receive Message >>
+
+@enduml

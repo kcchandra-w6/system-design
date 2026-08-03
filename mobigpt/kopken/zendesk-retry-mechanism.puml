@@ -1,0 +1,76 @@
+@startuml zendesk-retry-mechanism
+
+title Zendesk Retry Mechanism
+
+actor "User" as user
+participant "Zendesk" as zd
+participant "N8N" as wf
+database "PostgreSQL" as db
+participant "Notification Channel" as nc
+participant "N8N Scheduler" as cron
+
+user -> zd: << Create Ticket >>
+
+zd -> wf: << Webhook >>
+activate wf #SkyBlue
+
+wf -> wf: << Process Ticket >>
+wf --> db: << Insert Ticket >>
+
+wf -> zd: << Reply Ticket >>
+destroy zd
+note right of wf
+    Bot gagal hit Zendesk 
+    karena error ""to many request""
+end note
+
+zd -[#red]-> wf: << Error: to many request >>
+activate wf #IndianRed
+
+wf --> db: << Insert Error: For Retry >>
+deactivate wf
+
+wf --> nc: << Error Notifications >>
+wf -> zd: << Update Ticket etc >>
+deactivate wf
+
+== Start Of Retry Mechanism ==
+
+cron <-] : << Start Cron >>
+
+cron -> db: << Pull error >>
+db --> cron: << Errors >>
+
+loop for each error
+    cron -> cron: extract ticket data
+
+    alt Reply Message
+        cron -> zd: << Reply Message >>
+    else Update Ticket
+        cron -> zd: << Update Ticket >>
+    else Close Ticket
+        cron -> zd: << Close Ticket >>
+    else Re-send CSAT instagram
+        cron -> zd: << Re-send CSAT instagram >>
+        cron -> zd: << Close Ticket >>
+        alt Fail Close Ticket
+            cron -[#red]> db: << Insert Error >>
+            cron --> nc: << Error Notifications >>
+        end
+    else Assign Human Agent
+        cron -> zd: << Update Handled By >>
+    else Solve Ticket:
+        cron -> zd: << Solve Ticket >>
+    end
+
+    cron -> db: << Update Resolved >>
+
+    zd [#red]-> cron: << Update Unresolved >>
+    note right of cron
+        Jika eksekusi actions
+    end note
+
+    cron -> db: << Delete error >>
+end
+
+@enduml

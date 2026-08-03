@@ -8,23 +8,29 @@ participant "Zendesk" as zendesk
 participant "N8N" as n8n
 participant "Monitoring System" as monitoring
 participant "Mobichat" as mobichat
-participant "Redis" as redis
+database "Redis" as redis
 participant "AI Bot" as bot
+database "PostgreSQL" as db
 
 
 user -> instagram: << DM Official Account >>
 
-instagram -> zendesk ++: << Push Interaction >>
+instagram -> zendesk: << Push Interaction >>
+activate zendesk #LightBlue
 
 zendesk -> zendesk: Create Ticket
 ||10||
-zendesk -> n8n --++: << Trigger Workflow via Webhook >>
+zendesk -> n8n: << Trigger Workflow via Webhook >>
+deactivate zendesk #LightBlue
+activate n8n #Gold
 
 n8n -> mobichat: << Check Quota >>
 n8n <[#red]- mobichat: << Quota Result: Not Enough >>
 
-n8n -> zendesk ++: << Retrieve Ticket Comments >>
-zendesk -> n8n --: << Ticket Comments >>
+n8n -> zendesk: << Retrieve Ticket Comments >>
+activate zendesk #LightBlue
+zendesk -> n8n: << Ticket Comments >>
+deactivate zendesk #LightBlue
     note right
         get all chat history from ticket.
         Zendesk put the interactions as a comments within the ticket.
@@ -32,23 +38,37 @@ zendesk -> n8n --: << Ticket Comments >>
 
 group Checking Latest Message
     n8n -> redis: << Push Message ID >>
+    activate redis #YellowGreen
     n8n -> n8n: << Wait 10s >>
     n8n <- redis: << Retrieve: Message ID >>
+    deactivate redis #YellowGreen
     alt Message ID Equal
-        n8n <- redis ++: << Retrieve Intent >>
+        n8n <- redis: << Retrieve Intent >>
 
-        n8n --> monitoring: << Push Log Interaction >>
+        n8n -> monitoring: << Push Log Interaction >>
+        activate monitoring #Pink
             note right
                 inform the devs about ticket ID, interaction message
             end note
+        
+        monitoring --> db: << Insert Log Interaction >>
+        deactivate monitoring #Pink
 
         alt Direct To CS Agent
             n8n -> bot:  << Analyse the User Answer >>
+            activate bot #Aqua
             bot -> n8n: << User Answer >>
+            deactivate bot #Aqua
             
             alt Answer YES:
-                n8n -> n8n ++: << Assign Ticket to Agent >>
-                n8n --> monitoring: << Push Log Assignment >>
+                n8n -> n8n: << Assign Ticket to Agent >>
+
+                n8n -> monitoring: << Push Log Assignment >>
+                activate monitoring #Pink
+
+                monitoring --> db: << Insert Log Assignment >>
+                deactivate monitoring #Pink
+
                 n8n -> zendesk: << Respond User Message >>
                 destroy zendesk
             else Answer NO:
@@ -58,10 +78,15 @@ group Checking Latest Message
 
         else Exec Main Flow
             n8n -> n8n: << Exec Main Flow >>
+            activate n8n #GoldenRod
+
+            n8n <-?: << Analysis Result And Action >>
+            deactivate n8n
             ||10||
         end
 
-        n8n --> monitoring: << Push Log Main Flow >>
+        n8n -> monitoring: << Push Log Main Flow >>
+
         n8n -> n8n: << Extract Result >>
 
         alt Result: Set/Update Intent
@@ -84,9 +109,15 @@ group Checking Latest Message
         end
         
     else Message ID Not Equal
-        n8n ->] --: << Stop Process >>
+        n8n ->] : << Stop Process >>
         destroy n8n
     end
 end
+
+n8n -> zendesk: << Response Ticket >>
+
+zendesk -> instagram: << Respond Ticket >>
+
+instagram -> user: << Feedback >>
 
 @enduml

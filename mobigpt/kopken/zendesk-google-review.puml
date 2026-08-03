@@ -1,0 +1,38 @@
+@startuml Google Review Classification Workflow
+
+title Google Review Classification Workflow
+
+participant "N8N" as bot
+participant "AI Agent" as ai
+database "PostgreSQL" as db
+participant "Zendesk" as zd
+
+[-> bot: << Input Conversation >>
+
+bot -> db: << Get Ticket >>
+
+alt Ticket Is Closed
+    [<[#Red]- bot: << Ignore Ticket >>
+else
+    bot -> bot: << Proceed >>
+end
+
+bot -> ai: << Classify Category >>
+note right of ai: classify category and sub-category
+
+bot -> ai: << Classify Possitive/Negative >>
+note right of ai: decide the response
+
+bot --> db: ""Update Ticket Review Status""
+
+group Zendesk
+    bot -> zd: ""[POST] Update Ticket""
+    bot -> zd: ""[POST] Close Ticket""
+end
+
+bot --> bot: << Fetch AI Token Usage >>
+bot --> db: ""Insert Token Usage""
+
+[<- bot: << Construct Output >>
+
+@enduml

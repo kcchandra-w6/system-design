@@ -1,0 +1,59 @@
+@startuml auto-close
+
+title Zendesk Auto Close Worker
+
+participant "N8N" as wf
+participant "Zendesk" as zd
+database "PostgreSQL" as db
+participant "Sunshine API" as ss
+
+[-> wf: DoWork
+note left of wf: start workflow every 2min
+activate wf
+
+wf -> db: << Get Configs >>
+note left of db
+    configs for auto close
+    [Total Time of Stale, Auto Close Time]
+end note
+
+db --> wf: << Config >>
+
+wf -> db: << Get Ticket >>
+note right of db: ticket that stale after X min
+
+db --> wf: << Tickets >>
+
+loop for every ticket
+    wf -> db: << Get Ticket Detail >>
+    note left of wf
+        if ticket is closed, bypass
+        continue to exec next ticket.
+    end note
+    activate wf
+
+    wf -> db: << Get Chat Logs >>
+
+    wf -> wf: << Checking Closing Message >>
+
+    wf -> wf: << Generate Closing Message >>
+
+    alt Source WhatsApp
+        wf -> ss: << Send Closing >>
+    else Source Instagram
+        wf -> wf: << Construct Payload >>
+    end
+
+    wf -> zd: << Update Ticket >>
+
+    wf -> db: << Update ""t_tickets"" and ""t_chats"" >>
+
+    wf --> db: << Insert Outgoing Logs >>
+    deactivate wf
+end
+
+
+[<- wf: << Finish Job >>
+deactivate wf
+
+@enduml

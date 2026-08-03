@@ -1,0 +1,104 @@
+@startuml Kopken Main Flow
+
+title Kopken Main Flow
+
+participant "N8N" as bot
+participant "AI Agent - Classify" as ai
+database "FAQ Categorization" as fq
+participant "AI Agent - Kopken" as aik
+participant "AI Agent - Action" as aic
+participant "AI General Knowledge" as qd
+participant "AI Agent - Outlet Number" as aio
+
+[-> bot: << Input Conversation >>
+activate bot #YellowGreen
+
+alt Image/Media
+    [x<[#Red]- bot: << Finish >>
+else Continue With AI
+    [x<[#Blue]- bot: << Continue AI Action >>
+else Fallback
+    bot -> fq: << Get Classifications >>
+    bot <-- fq: << FAQs >>
+    bot -> bot: << Construct Classifications >>
+end
+
+bot -> ai: << Classify >>
+activate ai
+
+ai <-- qd: ""Pull Knowledge""
+
+bot <-- ai: << Clasification >>
+deactivate ai
+
+alt Category Only
+    [x<- bot: << Category & Subcategory >>
+else Confidence
+    bot -> aik: ""Generate Response""
+    activate aik
+
+    aik <-- qd: ""Pull Knowledge""
+
+    bot <-- aik: ""Response""
+    deactivate aik
+
+    [x<[#Red]- bot: << Reply & Assign Agent >>
+else Category: Non-General Inquiery
+    [x<[#Purple]- bot: ""Response Template""
+    note right of bot
+        Possible Action
+        - End Chat
+        - Chat CS -> Assign Agent
+        - Continue AI -> Return Template
+        - Need Human Assistane -> Assign Agent
+        - Fallback
+    end note
+else Fallback
+    bot -> aic: << Analysis Action >>
+    activate aic
+
+    bot <-- aic: ""Action""
+    deactivate aic
+
+    alt Text
+        bot <- fq: << Response Based on Template >>
+        note right of fq: pull response by category
+
+        bot <- fq: << Response Based on Template >>
+        note right of fq: pull response by sub-category
+
+        alt Outlet Phone Number
+            bot -> aio: ""Pull Outlet by AI""
+            activate aio
+
+            bot <-- aio: ""Outlet Number""
+            deactivate aio
+        else Fallback
+            ?x<- bot: << Response Template >>
+        end
+
+    else Closing
+        ?x<- bot: << Close Action >>
+    else Greetings - With/Without Time
+        ?x<- bot: << Greetings Action >>
+    else others
+        ?x<- bot: << Send Template Action >>
+    else Force Assign Agent, Repetitive, Spam, 
+        ?x<- bot: << Assign Agent >>
+    else Empty Form
+        ?x<- bot: << Send Template Action >>
+    else Fallback
+        bot -> aik: ""Generate Response""
+        activate aik
+
+        aik <-- qd: ""Pull Knowledge""
+
+        bot <-- aik: ""Response""
+        deactivate aik
+    end
+end
+
+[x<- bot: << Response >>
+deactivate bot
+
+@enduml

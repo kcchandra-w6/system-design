@@ -1,0 +1,39 @@
+@startuml Kopken CSAT
+
+title Kopken CSAT
+
+participant "Zendesk" as zd
+participant "N8N" as bot
+participant "AI Agent" as ai
+database "FAQ Categorization" as fq
+database "PostgreSQL" as db
+participant "Sunshine API" as sapi
+
+
+zd -> bot: ""[POST] /webhook/zendesk/form/satisfaction""
+
+bot --> zd: ""[200] OK""
+note right of zd: respond immediately
+
+alt Handled by Agent/Ticket Closed
+    bot -[#Red]>x]: << Finish >>
+else BOT
+    bot -> db: << Get Ticket >>
+    db --> bot: << Ticket >>
+
+    alt Source: WhatsApp
+        bot -> ss: ""[POST] Send CSAT""
+    else Source: Instagram
+        bot -> zd: ""[POST] Reply Public Comment CSAT""
+    end
+
+    alt Is Automation Business Hours
+        bot -> zd: ""[POST] Close Ticket""        
+    end
+
+    bot -> db: << Insert Log Outgoing >>
+
+    bot -> db: << Update Closed Ticket >>
+end
+
+@enduml

@@ -1,6 +1,6 @@
-@startuml kopken-zendesk-whatsapp-integration
+@startuml kopken-zendesk-whatsapp-integration-v2
 
-title Kopken Zendesk WhatsApp Integration
+title Kopken Zendesk WhatsApp Integration v2
 
 actor "User" as user
 participant "WhatsApp" as wa
